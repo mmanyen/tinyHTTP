@@ -1,0 +1,4 @@
+**/build*
+Local.cmake
+*.ignore
+**/.vscode
