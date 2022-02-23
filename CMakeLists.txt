@@ -5,7 +5,7 @@ cmake_minimum_required (VERSION 3.11)
 # Project name and Versioning stuff here, change when changing the version
 
 # Note: keep the project name lower case only for easy linux packaging support
-project (prismax VERSION 4.0.0 LANGUAGES CXX C)
+project (tinyHTTP VERSION 4.0.0 LANGUAGES CXX C)
 
 set(VERSION_TYPE "dev" CACHE STRING "version type" FORCE)
 site_name(VERSION_HOST) # read hostname to VERSION_HOST
