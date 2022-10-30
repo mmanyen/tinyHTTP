@@ -2,3 +2,4 @@
 Local.cmake
 *.ignore
 **/.vscode
+*.cache
