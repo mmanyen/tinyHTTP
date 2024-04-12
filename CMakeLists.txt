@@ -1,5 +1,5 @@
 # WebServer/REST project
-cmake_minimum_required (VERSION 3.11)
+cmake_minimum_required (VERSION 3.20)
 
 # Project setup, mostly boilerplate. 
 # Project name and Versioning stuff here, change when changing the version
@@ -28,14 +28,25 @@ endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}" )
 
-
-# Local.cmake should never be checked into source control
-# Default.cmake should be your project defaults and source controlled
-include(Default.cmake)
-include(Local OPTIONAL)
-
 # Defs for all project compiles
-add_compile_definitions(${PROJECT_OPTIONS_PLATFORM})
+if(WIN32)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+endif(WIN32)
+
+# export compile commands by default, this is handy for 
+# IDEs (VSCode), clang-tidy, and for other tools.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# We can use include() and find_package() for our scripts in there
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+#-------------------------------------------------------------------------------
+# Set default install location to dist folder in top dir
+# we do not want to install to /usr by default
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+set (CMAKE_INSTALL_PREFIX "${PROJECT_HOME}/dist" CACHE PATH
+    "Install path prefix, prepended onto install directories." FORCE )
+endif()
 
 # Documentation build
 add_subdirectory(doc)

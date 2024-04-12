@@ -5,27 +5,35 @@
 #include "httpparser/httprequestparser.h"
 #include "httpparser/response.h"
 #include "httpparser/httpresponseparser.h"
+#include <cstdint>
 #include <vector>
 #include <map>
-
-typedef bool (*EndPointHandlerType)(const httpparser::Request&, httpparser::Response&);
-
+#include <string>
+#include <functional>
+#include <thread>
+#include <atomic>
 
 class tinyHTTP
 {
 public: 
-    tinyHTTP();
+    tinyHTTP(const char* webroot = "./webroot", uint16_t port = 8080);
     virtual ~tinyHTTP();
 
-    bool RegisterEndpoint(std::string name, EndPointHandlerType handler);
-    int Start(const char* pWebRootFolder);
-    bool Stop();
+    bool RegisterEndpoint(std::string name,  std::function<bool(const httpparser::Request&, httpparser::Response&)> handler);
+    int Start();
+    void Stop();
 
 protected:
     void dispatchRequest(httpparser::Request request, httpparser::Response& response);
 
 private:
-    std::map<std::string, EndPointHandlerType> mEndpoints;
+    std::map<std::string, std::function<bool(const httpparser::Request&, httpparser::Response&)>> mEndpoints;
+    std::string mWebroot;
+    uint16_t mPort;
+    std::atomic_bool mbKeepRunning;
+
+    int Process();
+    std::thread* mProcessThread;
 };
 
 

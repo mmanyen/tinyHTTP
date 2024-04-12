@@ -1,4 +1,4 @@
-#ifdef PLATFORM_WINDOWS
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <Windows.h>
@@ -22,23 +22,16 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <iostream>
 
 #include "tinyHTTP.h"
 
 using namespace httpparser;
 
-// Files to be served are here
-const char* webroot = "./webroot";
-
-#define PORT 8080
-
-
-static bool sendFile(const httpparser::Request& request, httpparser::Response& response)
+static bool sendFile(const std::string& fileDir, const httpparser::Request& request, httpparser::Response& response)
 {
     bool bRet = false;
-    std::string localFile = webroot;
-
-    localFile += request.path;
+    std::string localFile = fileDir + request.path;
     FILE* f = fopen (localFile.c_str(), "rb");
     if (f)
     {
@@ -65,18 +58,25 @@ static bool sendFile(const httpparser::Request& request, httpparser::Response& r
     return bRet;
 }
 
-tinyHTTP::tinyHTTP()
+
+tinyHTTP::tinyHTTP(const char* webroot, uint16_t port) : 
+    mWebroot(webroot), mPort(port), mbKeepRunning(false), mProcessThread(nullptr)
 {
-    mEndpoints["*"] = sendFile;
+    RegisterEndpoint("*", [this] (const httpparser::Request& request, httpparser::Response& response) -> bool
+            {return sendFile(this->mWebroot, request, response);} ); // define the thunk
 }
 
 tinyHTTP::~tinyHTTP()
 {
+    if (mProcessThread != nullptr)
+    {
+        Stop();
+    }
 
 }
 
 
-bool tinyHTTP::RegisterEndpoint(std::string name, EndPointHandlerType handler)
+bool tinyHTTP::RegisterEndpoint(std::string name,  std::function<bool(const httpparser::Request&, httpparser::Response&)> handler)
 {
     // TODO: Check if unique
     mEndpoints[name] = handler;
@@ -85,8 +85,7 @@ bool tinyHTTP::RegisterEndpoint(std::string name, EndPointHandlerType handler)
 
 void tinyHTTP::dispatchRequest(Request request, Response& response)
 {
-    // Check list of endpoints 
-    std::map<std::string, EndPointHandlerType>::iterator it = mEndpoints.find(request.path);
+    std::map<std::string,  std::function<bool(const httpparser::Request&, httpparser::Response&)>>::iterator it = mEndpoints.find(request.path);
     if(it == mEndpoints.end())
     {
         // not found
@@ -119,8 +118,25 @@ enum
 };
 
 
+void tinyHTTP::Stop() 
+{
+    mbKeepRunning = false;
+    if (mProcessThread != nullptr)
+    {
+        mProcessThread = nullptr;
+    }
+}
 
-int tinyHTTP::Start(const char* pWebRootFolder)
+int tinyHTTP::Start()
+{
+    if (mProcessThread == nullptr)
+    {
+        mProcessThread = new std::thread([this]() {return this->Process();});
+    }
+    return 0;
+}
+
+int tinyHTTP::Process()
 {
     int server_fd, new_socket; 
     struct sockaddr_in address;
@@ -128,7 +144,7 @@ int tinyHTTP::Start(const char* pWebRootFolder)
     bool bInitSuccess = true;
     int retVal = SRV_NO_ERROR;
 
-#if PLATFORM_WINDOWS
+#ifdef _WIN32
     WORD wVersionRequested;
     WSADATA wsaData;
 
@@ -154,7 +170,7 @@ int tinyHTTP::Start(const char* pWebRootFolder)
     
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons( PORT );
+    address.sin_port = htons( mPort );
     
     memset(address.sin_zero, '\0', sizeof address.sin_zero);
     
@@ -172,8 +188,8 @@ int tinyHTTP::Start(const char* pWebRootFolder)
 
     if (bInitSuccess)
     {
-        RegisterEndpoint("*", sendFile); // define the thunk
-        while(1)
+        mbKeepRunning = true;
+        while(mbKeepRunning)
         {
             printf("\n+++++++ Waiting for new connection ++++++++\n\n");
             if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0)
@@ -190,10 +206,24 @@ int tinyHTTP::Start(const char* pWebRootFolder)
             Response response;
 
             HttpRequestParser::ParseResult res = inParser.parse(request, buffer, buffer + sizeof(buffer));
-
             if( res == HttpRequestParser::ParsingCompleted )
             {
                 printf("%s request on uri: %s\n", request.method.c_str(), request.uri.c_str());
+                if (request.content.size() == 0)
+                {
+                    printf("request content is empty\n");
+                }
+                else 
+                {
+                    printf("request content is %d bytes\n", request.content.size());
+                    size_t len = request.content.size() + 1;
+                    char *s = new char[len];
+                    memset(s, 0, len);
+                    strncpy(s, request.content.data(), len -1);
+                    printf("%s\n", s);
+
+                }
+
                 // Default to all is well
                 response.statusCode = 200;
                 response.status = "OK";
@@ -214,7 +244,11 @@ int tinyHTTP::Start(const char* pWebRootFolder)
             closesocket(new_socket);
         }
     }
-#ifdef PLATFORM_WINDOWS
+    else
+    {
+        printf("fail\n");
+    }
+#ifdef _WIN32
     WSACleanup();
 #endif 
 
