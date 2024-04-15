@@ -25,6 +25,7 @@
 #include <iostream>
 
 #include "tinyHTTP.h"
+#include "RequestReader.h"
 
 using namespace httpparser;
 
@@ -198,15 +199,20 @@ int tinyHTTP::Process()
                 continue;
             }
             
+            Request request;
+            Response response;
+
+#if 0
             char buffer[30000] = {0};
             socket_read(new_socket , buffer, 30000);
 
-            Request request;
             HttpRequestParser inParser;
-            Response response;
-
             HttpRequestParser::ParseResult res = inParser.parse(request, buffer, buffer + sizeof(buffer));
             if( res == HttpRequestParser::ParsingCompleted )
+#else
+            if(ReadRequest(new_socket, request))
+
+#endif
             {
                 printf("%s request on uri: %s\n", request.method.c_str(), request.uri.c_str());
                 if (request.content.size() == 0)

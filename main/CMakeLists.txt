@@ -1,4 +1,4 @@
-add_library(tinyHTTP tinyHTTP.cpp tinyHTTP.h)
+add_library(tinyHTTP tinyHTTP.cpp tinyHTTP.h RequestReader.cpp RequestReader.h)
 if(WIN32)
     target_link_libraries(tinyHTTP Ws2_32.lib)
 endif(WIN32)

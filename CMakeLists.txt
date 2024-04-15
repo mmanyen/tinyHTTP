@@ -31,6 +31,10 @@ message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}" )
 # Defs for all project compiles
 if(WIN32)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+      add_definitions(-ggdb -O0)
+    endif()
+
 endif(WIN32)
 
 # export compile commands by default, this is handy for 
